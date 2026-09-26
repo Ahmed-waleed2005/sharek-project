@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>المبادرات | شارك</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="initiatives">
+<div id="navbar"></div>
+
+<header class="page-header">
+  <div class="container">
+    <h1>المبادرات</h1>
+    <p>اكتشف المبادرات التطوعية القريبة وكن جزءاً من التغيير</p>
+  </div>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <div class="tabs" id="sort-tabs">
+      <button data-sort="newest" class="active">الأحدث</button>
+      <button data-sort="popular">الأكثر مشاركة</button>
+      <button data-sort="soonest">الأقرب إليك</button>
+    </div>
+    <div class="search-inline">
+      <span>🔍</span>
+      <input type="text" id="search-input" placeholder="ابحث عن مبادرة ..." />
+    </div>
+  </div>
+
+  <div class="map-filters" id="category-filters" style="margin-bottom:20px;"></div>
+
+  <div class="initiatives-grid" id="initiatives-grid"></div>
+
+  <div style="display:flex;justify-content:center;gap:10px;margin:36px 0 60px;" id="pagination"></div>
+</div>
+
+<div id="footer"></div>
+
+<script src="js/api.js"></script>
+<script src="js/common.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+let state = {
+  search: params.get('search') || '',
+  categoryId: params.get('category') || '',
+  sort: 'newest',
+  page: 1,
+};
+
+document.getElementById('search-input').value = state.search;
+
+async function loadCategoryFilters() {
+  const wrap = document.getElementById('category-filters');
+  try {
+    const categories = await api.categories();
+    wrap.innerHTML =
+      `<button data-cat="" class="${!state.categoryId ? 'active' : ''}">الكل</button>` +
+      categories
+        .map(
+          (c) =>
+            `<button data-cat="${c.id}" class="${String(c.id) === state.categoryId ? 'active' : ''}">${c.icon || ''} ${escapeHtml(c.name)}</button>`,
+        )
+        .join('');
+    wrap.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        wrap.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.categoryId = btn.dataset.cat;
+        state.page = 1;
+        loadInitiatives();
+      });
+    });
+  } catch (e) {
+    wrap.innerHTML = '';
+  }
+}
+
+function initiativeCard(item) {
+  const enrolled = item.enrolledCount || 0;
+  const pct = item.capacity ? Math.min(100, Math.round((enrolled / item.capacity) * 100)) : 0;
+  const img = item.imageUrl || `https://source.unsplash.com/400x260/?volunteer,${item.category?.slug || 'community'}`;
+  return `
+    <a href="initiative-details.html?id=${item.id}" class="init-card">
+      <div class="thumb" style="background-image:url('${img}')">
+        <span class="badge">${escapeHtml(item.category?.name || '')}</span>
+        <button class="heart" type="button" onclick="event.preventDefault()">🤍</button>
+      </div>
+      <div class="body">
+        <h3>${escapeHtml(item.title)}</h3>
+        <div class="init-meta">
+          <span>📍 ${escapeHtml(item.city)} - ${escapeHtml(item.location)}</span>
+          <span>📅 ${formatDate(item.eventDate)}</span>
+          <span>⏰ ${formatTime(item.eventTime)}</span>
+        </div>
+        <div class="progress-row">
+          <span>${enrolled} / ${item.capacity}</span>
+          <div class="progress-bar"><div style="width:${pct}%"></div></div>
+          <span>${pct}%</span>
+        </div>
+        <span class="btn btn-primary btn-block">انضم للمبادرة</span>
+      </div>
+    </a>`;
+}
+
+async function loadInitiatives() {
+  const grid = document.getElementById('initiatives-grid');
+  grid.innerHTML = `<p style="color:var(--muted);">جارِ التحميل ...</p>`;
+  const qs = new URLSearchParams();
+  if (state.search) qs.set('search', state.search);
+  if (state.categoryId) qs.set('categoryId', state.categoryId);
+  if (state.sort) qs.set('sort', state.sort);
+  qs.set('page', state.page);
+  qs.set('limit', 9);
+
+  try {
+    const res = await api.initiatives('?' + qs.toString());
+    if (!res.items.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">لا توجد مبادرات مطابقة لبحثك حالياً 🌱</div>`;
+    } else {
+      grid.innerHTML = res.items.map(initiativeCard).join('');
+    }
+    renderPagination(res);
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">تعذر تحميل المبادرات: ${e.message}</div>`;
+  }
+}
+
+function renderPagination(res) {
+  const el = document.getElementById('pagination');
+  if (res.totalPages <= 1) {
+    el.innerHTML = '';
+    return;
+  }
+  let html = '';
+  for (let p = 1; p <= res.totalPages; p++) {
+    html += `<button class="btn ${p === res.page ? 'btn-primary' : 'btn-outline-dark'} btn-sm" data-page="${p}">${p}</button>`;
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('button').forEach((b) =>
+    b.addEventListener('click', () => {
+      state.page = +b.dataset.page;
+      loadInitiatives();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }),
+  );
+}
+
+document.getElementById('sort-tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#sort-tabs button').forEach((b) => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.sort = btn.dataset.sort;
+  state.page = 1;
+  loadInitiatives();
+});
+
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.search = e.target.value.trim();
+    state.page = 1;
+    loadInitiatives();
+  }, 400);
+});
+
+loadCategoryFilters();
+loadInitiatives();
+</script>
+</body>
+</html>

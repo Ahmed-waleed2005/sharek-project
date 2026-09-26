@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لوحة التحكم | شارك</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="dashboard">
+<div id="navbar"></div>
+
+<div class="dash-layout">
+  <aside class="dash-sidebar">
+    <a href="index.html">🏠 الرئيسية</a>
+    <a href="initiatives.html">🗂️ المبادرات</a>
+    <a href="profile.html">👤 الملف الشخصي</a>
+    <a href="dashboard.html" class="active">📊 لوحة التحكم</a>
+    <a href="create-initiative.html">➕ إنشاء مبادرة</a>
+  </aside>
+
+  <div class="dash-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="margin-top:0;">مبادراتي المنشأة</h2>
+      <a href="create-initiative.html" class="btn btn-primary btn-sm">+ مبادرة جديدة</a>
+    </div>
+    <div class="initiatives-grid" id="dash-grid"></div>
+  </div>
+</div>
+
+<div id="footer"></div>
+
+<script src="js/api.js"></script>
+<script src="js/common.js"></script>
+<script>
+if (!requireAuth()) { /* redirected */ }
+const user = getCurrentUser();
+
+async function loadMine() {
+  const grid = document.getElementById('dash-grid');
+  grid.innerHTML = `<p style="color:var(--muted);">جارِ التحميل ...</p>`;
+  try {
+    const res = await api.initiatives('?limit=100');
+    const mine = res.items.filter((it) => it.organizerId === user.id || it.organizer?.id === user.id);
+    if (!mine.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">لم تنشئ أي مبادرة بعد. <a href="create-initiative.html" style="color:var(--green-dark);font-weight:700;">أنشئ أول مبادرة</a></div>`;
+      return;
+    }
+    grid.innerHTML = mine
+      .map(
+        (item) => `
+      <div class="init-card">
+        <div class="thumb" style="background-image:url('${item.imageUrl || 'https://source.unsplash.com/400x260/?volunteer'}')">
+          <span class="badge">${escapeHtml(item.category?.name || '')}</span>
+        </div>
+        <div class="body">
+          <h3>${escapeHtml(item.title)}</h3>
+          <div class="init-meta">
+            <span>📍 ${escapeHtml(item.city)}</span>
+            <span>📅 ${formatDate(item.eventDate)}</span>
+            <span>👥 ${item.enrolledCount || 0} / ${item.capacity} منضم</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <a href="initiative-details.html?id=${item.id}" class="btn btn-outline-dark btn-sm" style="flex:1;">عرض</a>
+            <button class="btn btn-danger btn-sm" style="flex:1;" onclick="removeInitiative(${item.id})">حذف</button>
+          </div>
+        </div>
+      </div>`,
+      )
+      .join('');
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">تعذر تحميل مبادراتك: ${e.message}</div>`;
+  }
+}
+
+async function removeInitiative(id) {
+  if (!confirm('هل أنت متأكد من حذف هذه المبادرة؟')) return;
+  try {
+    await api.deleteInitiative(id);
+    showToast('تم حذف المبادرة');
+    loadMine();
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+
+loadMine();
+</script>
+</body>
+</html>

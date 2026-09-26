@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>الملف الشخصي | شارك</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="profile">
+<div id="navbar"></div>
+
+<div class="dash-layout">
+  <aside class="dash-sidebar">
+    <a href="index.html">🏠 الرئيسية</a>
+    <a href="initiatives.html">🗂️ المبادرات</a>
+    <a href="profile.html" class="active">👤 الملف الشخصي</a>
+    <a href="profile.html#saved">⏱️ ساعات التطوع</a>
+    <a href="dashboard.html">📊 لوحة التحكم</a>
+  </aside>
+
+  <div class="dash-content">
+    <h2 style="margin-top:0;">الملف الشخصي</h2>
+
+    <div class="card-box" style="max-width:560px;">
+      <form id="profile-form">
+        <div class="form-field">
+          <label>الاسم الكامل</label>
+          <input type="text" name="fullName" />
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>رقم الهاتف</label>
+            <input type="tel" name="phone" />
+          </div>
+          <div class="form-field">
+            <label>المدينة</label>
+            <input type="text" name="city" />
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit">حفظ التغييرات</button>
+        <p class="form-msg" id="form-msg"></p>
+      </form>
+    </div>
+
+    <h3 id="saved">مبادراتي</h3>
+    <div class="initiatives-grid" id="my-initiatives"></div>
+  </div>
+</div>
+
+<div id="footer"></div>
+
+<script src="js/api.js"></script>
+<script src="js/common.js"></script>
+<script>
+if (!requireAuth()) { /* redirected */ }
+
+async function init() {
+  try {
+    const me = await api.me();
+    setSession(getToken(), me);
+    document.querySelector('[name="fullName"]').value = me.fullName || '';
+    document.querySelector('[name="phone"]').value = me.phone || '';
+    document.querySelector('[name="city"]').value = me.city || '';
+  } catch (e) {
+    showToast('تعذر تحميل بيانات الحساب');
+  }
+
+  try {
+    const enrollments = await api.myInitiatives();
+    const grid = document.getElementById('my-initiatives');
+    if (!enrollments.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">لم تنضم لأي مبادرة بعد. <a href="initiatives.html" style="color:var(--green-dark);font-weight:700;">تصفح المبادرات</a></div>`;
+      return;
+    }
+    grid.innerHTML = enrollments
+      .map((en) => {
+        const item = en.initiative;
+        return `
+        <a href="initiative-details.html?id=${item.id}" class="init-card">
+          <div class="thumb" style="background-image:url('${item.imageUrl || 'https://source.unsplash.com/400x260/?volunteer'}')">
+            <span class="badge">${escapeHtml(item.category?.name || '')}</span>
+          </div>
+          <div class="body">
+            <h3>${escapeHtml(item.title)}</h3>
+            <div class="init-meta">
+              <span>📍 ${escapeHtml(item.city)}</span>
+              <span>📅 ${formatDate(item.eventDate)}</span>
+            </div>
+          </div>
+        </a>`;
+      })
+      .join('');
+  } catch (e) {
+    /* ignore */
+  }
+}
+init();
+
+document.getElementById('profile-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('form-msg');
+  const form = new FormData(e.target);
+  try {
+    const updated = await api.updateMe(Object.fromEntries(form.entries()));
+    setSession(getToken(), updated);
+    showToast('تم حفظ التغييرات');
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'var(--danger)';
+  }
+});
+</script>
+</body>
+</html>

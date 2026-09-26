@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>خريطة المبادرات | شارك</title>
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body data-page="map">
+<div id="navbar"></div>
+
+<div class="map-layout">
+  <aside class="map-sidebar">
+    <h2>خريطة المبادرات</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-top:-8px;">اكتشف المبادرات القريبة منك على الخريطة</p>
+    <div class="map-search">
+      <span>🔍</span>
+      <input type="text" id="map-search" placeholder="ابحث عن منطقة أو مبادرة ..." />
+    </div>
+    <div class="map-filters" id="map-filters"></div>
+    <ul id="map-list"></ul>
+  </aside>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/api.js"></script>
+<script src="js/common.js"></script>
+<script>
+const map = L.map('map').setView([26.8206, 30.8025], 6); // مركز مصر تقريباً
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+}).addTo(map);
+
+const greenIcon = L.divIcon({
+  className: '',
+  html: `<div style="background:#189a55;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);border:2px solid #fff;"><span style="transform:rotate(45deg);color:#fff;font-size:13px;">🌱</span></div>`,
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+});
+
+let allItems = [];
+let markers = [];
+let activeCategory = '';
+
+function clearMarkers() {
+  markers.forEach((m) => map.removeLayer(m));
+  markers = [];
+}
+
+function renderMarkersAndList(items) {
+  clearMarkers();
+  const list = document.getElementById('map-list');
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-state">لا توجد مبادرات مطابقة</div>`;
+    return;
+  }
+  list.innerHTML = items
+    .map(
+      (it) => `
+    <li class="map-item" data-id="${it.id}">
+      <div class="dot">🌱</div>
+      <div>
+        <h4>${escapeHtml(it.title)}</h4>
+        <span>${escapeHtml(it.category?.name || '')} · ${formatDate(it.eventDate)}</span>
+      </div>
+    </li>`,
+    )
+    .join('');
+
+  list.querySelectorAll('.map-item').forEach((li) => {
+    li.addEventListener('click', () => {
+      window.location.href = `initiative-details.html?id=${li.dataset.id}`;
+    });
+  });
+
+  items.forEach((it) => {
+    if (!it.latitude || !it.longitude) return;
+    const marker = L.marker([it.latitude, it.longitude], { icon: greenIcon }).addTo(map);
+    marker.bindPopup(`
+      <strong>${escapeHtml(it.title)}</strong><br/>
+      <span style="color:#6b7a73;font-size:.82rem;">${escapeHtml(it.city)} · ${formatDate(it.eventDate)}</span><br/>
+      <a href="initiative-details.html?id=${it.id}" style="color:#189a55;font-weight:700;">عرض التفاصيل ←</a>
+    `);
+    markers.push(marker);
+  });
+}
+
+function applyFilters() {
+  const q = document.getElementById('map-search').value.trim().toLowerCase();
+  let filtered = allItems;
+  if (activeCategory) {
+    filtered = filtered.filter((it) => String(it.category?.id) === activeCategory);
+  }
+  if (q) {
+    filtered = filtered.filter(
+      (it) => it.title.toLowerCase().includes(q) || it.city.toLowerCase().includes(q),
+    );
+  }
+  renderMarkersAndList(filtered);
+}
+
+async function loadMapData() {
+  try {
+    const [items, categories] = await Promise.all([api.initiativesForMap(), api.categories()]);
+    allItems = items;
+
+    const filtersWrap = document.getElementById('map-filters');
+    filtersWrap.innerHTML =
+      `<button data-cat="" class="active">الكل</button>` +
+      categories.map((c) => `<button data-cat="${c.id}">${c.icon || ''} ${escapeHtml(c.name)}</button>`).join('');
+    filtersWrap.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filtersWrap.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCategory = btn.dataset.cat;
+        applyFilters();
+      });
+    });
+
+    renderMarkersAndList(allItems);
+  } catch (e) {
+    document.getElementById('map-list').innerHTML = `<div class="empty-state">تعذر تحميل بيانات الخريطة: ${e.message}</div>`;
+  }
+}
+
+document.getElementById('map-search').addEventListener('input', applyFilters);
+loadMapData();
+</script>
+</body>
+</html>

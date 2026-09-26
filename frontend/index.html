@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>شارك | منصة التطوع المجتمعي</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="index">
+<div id="navbar"></div>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <h1>وقت صغير منك ..<br/>أثر <span>كبير في مجتمعك</span></h1>
+      <p>منصة تجمع الناس وترتبطهم بفرص العمل التطوعي في مختلف المجالات لخدمة المجتمع وبناء مستقبل أفضل.</p>
+      <form class="search-box" id="hero-search">
+        <input type="text" placeholder="ابحث عن مبادرة تطوعية ..." id="hero-search-input" />
+        <button class="btn btn-primary" type="submit">بحث</button>
+      </form>
+      <div class="hero-filters">
+        <div>📍 المكان<br/><strong>كل المناطق</strong></div>
+        <div>📅 التاريخ<br/><strong>أي وقت</strong></div>
+        <div>🗂️ المجال<br/><strong>جميع المجالات</strong></div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-stats">
+    <div class="stats-row">
+      <div class="stat"><b id="stat-volunteers">+1200</b><span>متطوع نشط</span></div>
+      <div class="stat"><b id="stat-initiatives">+350</b><span>مبادرة تطوعية</span></div>
+      <div class="stat"><b id="stat-hours">+18000</b><span>ساعة تطوع</span></div>
+      <div class="stat"><b>+12</b><span>مجال مختلف</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="categories">
+  <div class="container">
+    <h2 class="section-title">اختر المجال الذي يهمك</h2>
+    <p style="text-align:center;color:var(--muted);margin-top:-28px;margin-bottom:36px;">كل مجال يمثل فرصة لعمل فرق حقيقي في المجتمع</p>
+    <div class="cat-grid" id="cat-grid"></div>
+
+    <div class="cta-banner">
+      <div>
+        <h3>معاً نصنع فرقاً</h3>
+        <p>كن جزءاً من التغيير وانضم إلى مجتمع المتطوعين</p>
+      </div>
+      <a href="register.html" class="btn btn-primary">ابدأ الآن</a>
+    </div>
+  </div>
+</section>
+
+<div id="footer"></div>
+
+<script src="js/api.js"></script>
+<script src="js/common.js"></script>
+<script>
+const CATEGORY_IMAGES = {
+  environment: 'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?q=80&w=400&auto=format&fit=crop',
+  tourism: 'https://images.unsplash.com/photo-1568322445389-f64ac2515020?q=80&w=400&auto=format&fit=crop',
+  planting: 'https://images.unsplash.com/photo-1462536943532-57a629f6cc60?q=80&w=400&auto=format&fit=crop',
+  community: 'https://images.unsplash.com/photo-1593113646773-028c64a8f1b8?q=80&w=400&auto=format&fit=crop',
+  education: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=400&auto=format&fit=crop',
+  health: 'https://images.unsplash.com/photo-1615461066841-6116e61058f4?q=80&w=400&auto=format&fit=crop',
+  animals: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=400&auto=format&fit=crop',
+  development: 'https://images.unsplash.com/photo-1487958449943-2429e8be8625?q=80&w=400&auto=format&fit=crop',
+  culture: 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?q=80&w=400&auto=format&fit=crop',
+  technology: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=400&auto=format&fit=crop',
+};
+const CATEGORY_DESC = {
+  environment: 'تنظيف الشوارع، التشجير',
+  tourism: 'إرشاد السياح، الترويج السياحي',
+  planting: 'زراعة الأشجار، تحسين الحدائق',
+  community: 'توزيع الطعام، مساعدة كبار السن',
+  education: 'محو الأمية، دروس مجانية',
+  health: 'حملات التبرع، التوعية الصحية',
+  animals: 'إنقاذ الحيوانات، إطعامها',
+  development: 'دهان المدارس، تجميل الأماكن العامة',
+  culture: 'فعاليات ثقافية، رسم جداريات',
+  technology: 'تعليم البرمجة، دعم المؤسسات الصغيرة',
+};
+
+async function loadCategories() {
+  const grid = document.getElementById('cat-grid');
+  try {
+    const categories = await api.categories();
+    grid.innerHTML = categories
+      .map(
+        (c) => `
+      <a href="initiatives.html?category=${c.id}" class="cat-card">
+        <div class="thumb" style="background-image:url('${CATEGORY_IMAGES[c.slug] || CATEGORY_IMAGES.community}')">
+          <span class="icon-badge">${c.icon || '🌱'}</span>
+        </div>
+        <div class="body">
+          <h3>${escapeHtml(c.name)}</h3>
+          <p>${CATEGORY_DESC[c.slug] || ''}</p>
+          <span class="btn btn-outline-dark btn-sm btn-block">عرض المبادرات</span>
+        </div>
+      </a>`,
+      )
+      .join('');
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state">تعذر تحميل الأقسام حالياً (${e.message})</div>`;
+  }
+}
+loadCategories();
+
+document.getElementById('hero-search').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const q = document.getElementById('hero-search-input').value.trim();
+  window.location.href = `initiatives.html${q ? '?search=' + encodeURIComponent(q) : ''}`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>إنشاء مبادرة | شارك</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="initiatives">
+<div id="navbar"></div>
+
+<header class="page-header">
+  <div class="container">
+    <h1>إنشاء مبادرة</h1>
+    <p>شارك فكرتك التطوعية وادعُ المجتمع للمشاركة فيها</p>
+  </div>
+</header>
+
+<div class="container" style="max-width:760px;margin-top:-40px;margin-bottom:60px;">
+  <form class="card-box" id="create-form" style="padding:32px;">
+    <div class="form-field">
+      <label>عنوان المبادرة</label>
+      <input type="text" name="title" required placeholder="مثال: حملة تنظيف كورنيش النيل" />
+    </div>
+
+    <div class="form-field">
+      <label>القسم</label>
+      <select name="categoryId" id="category-select" required></select>
+    </div>
+
+    <div class="form-field">
+      <label>وصف المبادرة</label>
+      <textarea name="description" rows="4" required placeholder="اكتب وصفاً مفصلاً عن المبادرة والهدف منها ..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>المدينة</label>
+        <input type="text" name="city" required placeholder="القاهرة" />
+      </div>
+      <div class="form-field">
+        <label>الموقع بالتفصيل</label>
+        <input type="text" name="location" required placeholder="كورنيش النيل - القاهرة" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>خط العرض (Latitude) - اختياري</label>
+        <input type="number" step="any" name="latitude" placeholder="30.0444" />
+      </div>
+      <div class="form-field">
+        <label>خط الطول (Longitude) - اختياري</label>
+        <input type="number" step="any" name="longitude" placeholder="31.2357" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>تاريخ المبادرة</label>
+        <input type="date" name="eventDate" required />
+      </div>
+      <div class="form-field">
+        <label>الوقت</label>
+        <input type="time" name="eventTime" required />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>عدد المتطوعين المطلوب</label>
+        <input type="number" name="capacity" min="1" required placeholder="30" />
+      </div>
+      <div class="form-field">
+        <label>رابط صورة (اختياري)</label>
+        <input type="url" name="imageUrl" placeholder="https://..." />
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>المتطلبات (اختياري)</label>
+      <input type="text" name="requirements" placeholder="نوع بيئة: تنظيف ، السن من 16 فما فوق" />
+    </div>
+
+    <div class="form-field">
+      <label>ما سيكسبه المشارك (اختياري)</label>
+      <input type="text" name="benefits" placeholder="شهادة مشاركة، التعرف على أشخاص جدد" />
+    </div>
+
+    <button class="btn btn-primary btn-block" type="submit">نشر المبادرة</button>
+    <p class="form-msg" id="form-msg"></p>
+  </form>
+</div>
+
+<div id="footer"></div>
+
+<script src="js/api.js"></script>
+<script src="js/common.js"></script>
+<script>
+if (!requireAuth()) { /* redirected */ }
+
+async function loadCategories() {
+  const select = document.getElementById('category-select');
+  try {
+    const categories = await api.categories();
+    select.innerHTML = categories.map((c) => `<option value="${c.id}">${c.icon || ''} ${escapeHtml(c.name)}</option>`).join('');
+  } catch (e) {
+    select.innerHTML = `<option value="">تعذر تحميل الأقسام</option>`;
+  }
+}
+loadCategories();
+
+document.getElementById('create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('form-msg');
+  msg.textContent = '';
+  const form = new FormData(e.target);
+  const payload = Object.fromEntries(form.entries());
+  payload.categoryId = +payload.categoryId;
+  payload.capacity = +payload.capacity;
+  if (payload.latitude) payload.latitude = +payload.latitude; else delete payload.latitude;
+  if (payload.longitude) payload.longitude = +payload.longitude; else delete payload.longitude;
+  if (!payload.imageUrl) delete payload.imageUrl;
+  if (!payload.requirements) delete payload.requirements;
+  if (!payload.benefits) delete payload.benefits;
+
+  try {
+    const initiative = await api.createInitiative(payload);
+    showToast('تم نشر المبادرة بنجاح 🎉');
+    setTimeout(() => (window.location.href = `initiative-details.html?id=${initiative.id}`), 600);
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'var(--danger)';
+  }
+});
+</script>
+</body>
+</html>
